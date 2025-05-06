@@ -1,0 +1,10 @@
+num_processes: 1
+num_machines: 1
+debug: true
+distributed_type: DEEPSPEED
+compute_environment: LOCAL_MACHINE
+machine_rank: 0
+use_cpu: false
+deepspeed_config: 
+    deepspeed_config_file: zero3.json
+    zero3_init_flag: true
