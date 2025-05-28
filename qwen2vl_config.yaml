@@ -6,29 +6,30 @@ torch_dtype: bfloat16
 
 
 # Dataset args
-dataset_name: "kevinkingslin/GRPODataset"
+dataset_name: "kevinkingslin/GRPODataset2"
 
 # Trainer args
 bf16: true
-gradient_checkpointing: true
-output_dir: "output/qwen_v1"
-per_device_train_batch_size: 16
-gradient_accumulation_steps: 4
+gradient_checkpointing: false
+output_dir: "output/qwen_v6"
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 1
 # max_prompt_length: 1024
 max_completion_length: 1024
-logging_steps: 10
+logging_steps: 1
 report_to: "wandb"
 lr_scheduler_type: "cosine"
 attn_implementation: "flash_attention_2"
 max_pixels: 201000
-num_train_epochs: 1
-run_name: "Qwen-2B"
-learning_rate: 1e-6
-warmup_steps: 0
-save_steps: 100
-beta: 0.04
+num_train_epochs: 2
+run_name: "Qwen-2B_v6"
+learning_rate: 2e-5
+warmup_steps: 75
+save_steps: 25
+beta: 0.01
 save_only_model: false
 num_generations: 2
 dataloader_num_workers: 8
 dataloader_prefetch_factor: 4
 dataloader_pin_memory: true
+temperature: 1.0

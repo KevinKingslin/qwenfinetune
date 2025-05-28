@@ -266,12 +266,12 @@ class Qwen2VLGRPOTrainer(Trainer):
         self.vision_modules_keywords = self.vlm_module.get_vision_modules_keywords()
 
         peft_config = LoraConfig(
-            lora_alpha=8,
-            lora_dropout=0.05,
-            r=4,
+            lora_alpha=16,
+            lora_dropout=0.1,
+            r=8,
             bias="none",
             inference_mode=False,
-            target_modules=["q_proj", "v_proj"],
+            target_modules=["q_proj", "v_proj", "k_proj"],
             task_type="CAUSAL_LM"
         )
 
@@ -393,7 +393,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         self.generation_config = GenerationConfig(
             max_new_tokens=self.max_completion_length,
             do_sample=True,  
-            temperature=1,
+            temperature=1.0,
             pad_token_id=pad_token_id,
         )
         if hasattr(self.vlm_module, "get_eos_token_id"): # For InternVL
@@ -471,6 +471,20 @@ class Qwen2VLGRPOTrainer(Trainer):
         for i, reward_func in enumerate(self.reward_funcs):
             if isinstance(reward_func, PreTrainedModel):
                 self.reward_funcs[i] = self.accelerator.prepare_model(reward_func, evaluation_mode=True)
+
+    # def _load_from_checkpoint(self, resume_from_checkpoint, model=None):
+    #     import os
+    #     import transformers
+
+    #     if model is None:
+    #         model = self.model
+
+    #     checkpoint_folder = os.path.join(resume_from_checkpoint, "adapter_model.safetensors")
+
+    #     state_dict = torch.load(checkpoint_folder, weights_only=False)
+    #     model.load_state_dict(state_dict)
+
+    #     return super()._load_from_checkpoint(resume_from_checkpoint, model=model)
 
     def _enable_gradient_checkpointing(self, model: PreTrainedModel, args: GRPOConfig) -> PreTrainedModel:
         """Enables gradient checkpointing for the model."""
@@ -615,6 +629,9 @@ class Qwen2VLGRPOTrainer(Trainer):
                 completion_ids = generate_returned_result
                 prompt_completion_ids = torch.cat([prompt_ids, completion_ids], dim=1)
 
+            ## rem
+            decoded_completions = [self.processing_class.tokenizer.convert_ids_to_tokens(ids.tolist()) for ids in completion_ids]
+        
         # Mask everything after the first EOS token
         is_eos = completion_ids == self.processing_class.eos_token_id
         eos_idx = torch.full((is_eos.size(0),), is_eos.size(1), dtype=torch.long, device=device)
@@ -661,6 +678,13 @@ class Qwen2VLGRPOTrainer(Trainer):
         # Compute the rewards
         # No need to duplicate prompts as we're not generating multiple completions per prompt
 
+        test_results = []
+        try:
+            for tokens, logps in zip(decoded_completions, ref_per_token_logps):
+                test_results.append(list(zip(tokens, logps.tolist())))
+        except:
+            pass
+
         rewards_per_func = torch.zeros(len(prompts), len(self.reward_funcs), device=device)
         for i, (reward_func, reward_processing_class) in enumerate(
             zip(self.reward_funcs, self.reward_processing_classes)
@@ -685,7 +709,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                         # No need to duplicate prompts as we're not generating multiple completions per prompt
                         # reward_kwargs[key].extend([example[key]] * self.num_generations)
                         reward_kwargs[key].extend([example[key]])
-                output_reward_func = reward_func(prompts=prompts, completions=completions, solutions=solutions, **reward_kwargs)
+                output_reward_func = reward_func(prompts=prompts, completions=completions, solutions=solutions, per_token_logps=test_results, **reward_kwargs)
                 rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
 
         # Gather rewards across processes

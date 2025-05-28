@@ -1,10 +1,26 @@
 num_processes: 1
 num_machines: 1
-debug: true
+debug: false
 distributed_type: DEEPSPEED
 compute_environment: LOCAL_MACHINE
 machine_rank: 0
 use_cpu: false
-deepspeed_config: 
-    deepspeed_config_file: zero3.json
-    zero3_init_flag: true
+downcast_bf16: 'no'
+enable_cpu_affinity: false
+deepspeed_config:
+  zero3_init_flag: false
+  zero_optimization:
+    stage: 2
+    offload_optimizer:
+      device: "cpu"
+      pin_memory: true
+  bf16:
+    enabled: true
+  activation_checkpointing:
+    partition_activations: true
+    contiguous_memory_optimization: true
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false

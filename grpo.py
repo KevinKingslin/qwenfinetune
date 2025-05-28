@@ -69,7 +69,7 @@ class GRPOScriptArguments(ScriptArguments):
     """
 
     reward_funcs: list[str] = field(
-        default_factory=lambda: ["preference", "format", "length", "hallucination"],
+        default_factory=lambda: ["preference", "format"],
         metadata={"help": "List of reward functions. Possible values: 'accuracy', 'format'"},
     )
     max_pixels: Optional[int] = field(
@@ -94,7 +94,7 @@ class GRPOModelConfig(ModelConfig):
     freeze_vision_modules: bool = False
 
 
-SYSTEM_PROMPT = """You are a human evaluator choosing between two AI-generated images—image 0 (left) and image 1 (right)—produced from a text prompt. Critically compare both images and choose the better image."""
+SYSTEM_PROMPT = """You are a human evaluator choosing between two AI-generated images—image 1 (left) and image 2 (right)—produced from a text prompt. Critically compare both images and choose the better image."""
 
 class LazySupervisedDataset(Dataset):
     def __init__(self, data_path: str, script_args: GRPOScriptArguments, question_template: str):
@@ -184,9 +184,7 @@ def main(script_args, training_args, model_args):
     # Load the reward functions
     reward_funcs_registry = {
         "preference": vlm_module_cls.preference_reward_func,
-        "format": vlm_module_cls.format_reward_func,
-        "length": vlm_module_cls.reasoning_length_reward_func,
-        "hallucination": vlm_module_cls.hallucination_reward_func
+        "format": vlm_module_cls.format_reward_func
     }
     reward_funcs = [reward_funcs_registry[func] for func in script_args.reward_funcs]
     print("reward_funcs:", reward_funcs)
@@ -215,7 +213,7 @@ def main(script_args, training_args, model_args):
     )
 
     # Train and push the model to the Hub
-    trainer.train()
+    trainer.train(resume_from_checkpoint="/workspace/output/qwen_v6/checkpoint-75")
 
     # Save and push to hub
     trainer.save_model(training_args.output_dir)
